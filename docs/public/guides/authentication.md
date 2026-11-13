@@ -14,21 +14,24 @@ from novaos_client_sdk import Client, BearerTokenAuth
 token = my_app.get_access_token()  # however your app obtains one
 auth = BearerTokenAuth(token=token)
 
-async with Client(base_url="http://my-agent.example.internal:8000", auth=auth) as client:
+async with Client(base_url="https://my-agent.example.test", auth=auth) as client:
     ...
 ```
 
 **API keys** — for static, service-to-service credentials. These are safe to source from the environment:
 
 ```python
+import os
 from novaos_client_sdk import APIKeyAuth, get_api_key_from_env
 
-# Explicit
-auth = APIKeyAuth(api_key="my-key", header_name="X-API-Key")
+# Read an application-configured environment variable explicitly
+auth = APIKeyAuth(api_key=os.environ["NOVAOS_API_KEY"], header_name="X-API-Key")
 
-# From the ACP_API_KEY environment variable
-auth = get_api_key_from_env()
+# Or configure the helper to read that variable
+auth = get_api_key_from_env(env_var="NOVAOS_API_KEY")
 ```
+
+When called without `env_var`, `get_api_key_from_env()` reads `ACP_API_KEY` for compatibility. A missing or empty variable raises `ValueError`.
 
 **A custom provider** — implement the one-method interface for anything else (mTLS-derived headers, a signed-request scheme, ...):
 
@@ -62,7 +65,7 @@ class LogtoTokenService(CredentialService):
 
 interceptor = AuthInterceptor(credential_service=LogtoTokenService(logto_client))
 
-async with Client(base_url="http://my-agent.example.internal:8000", interceptors=[interceptor]) as client:
+async with Client(base_url="https://my-agent.example.test", interceptors=[interceptor]) as client:
     ...
 ```
 
@@ -70,7 +73,7 @@ The application still owns obtaining the credential — `CredentialService` is o
 
 ## Inside an agent: the execution context
 
-An agent running on the NovaOS platform sits behind an auth-proxy sidecar that injects the caller's identity and a short-lived execution token as headers on every request — you don't mint or manage these yourself. [`AgentExecutionContext`](../reference/api.md#novaos_client_sdk.agent_context) (the `ctx` your skill receives) parses them for you:
+For an Agent running in a configured NovaOS environment, the request supplies caller identity and an execution token. [`AgentExecutionContext`](../reference/api.md#novaos_client_sdk.agent_context) (the `ctx` your skill receives) exposes these values; your Agent should use the supplied context rather than manufacture a caller identity or token.
 
 ```python
 from novaos_client_sdk import AgentExecutionContext
@@ -85,15 +88,15 @@ async def my_skill(ctx: AgentExecutionContext, input_text: str):
 
 `ctx.tools.*` (see [Platform tools](platform-tools.md)) already attach this token automatically — you only need `to_auth_headers()` for calls the SDK doesn't make on your behalf.
 
-Running the agent locally, outside the sidecar? There's no token to inject, so calls that require one raise `MissingExecutionTokenError`. Set the `NOVAOS_EXECUTION_TOKEN` environment variable to a test value, or pass headers explicitly, to unblock local development.
+A local Agent does not automatically receive a hosted execution token. Calls that require one raise `MissingExecutionTokenError`. A synthetic token is suitable only for isolated tests that inspect context or headers; it does not grant access to real services. For a real service call, use a valid credential supplied through your approved environment configuration, including `NOVAOS_EXECUTION_TOKEN` where applicable. Do not paste credentials into source code or chat.
 
 ## Per-run secrets: sealed delivery
 
-The platform can also hand your agent secrets scoped to one run — an SMTP password, a third-party API key — without ever putting the plaintext on the wire in the clear. Its Temporal worker seals each value to your pod's own key before the request leaves the control plane; the sealed payload rides inside the A2A `user-context/v1` extension and is opened only inside your process, past the auth-proxy sidecar. You don't need to know any of that to use it: call `ctx.get_secret("SECRET_NAME")` (optionally with a `default` for one that may not be delivered) from any skill, and a `SecretNotDeliveredError` tells you if nothing arrived under that name. This is entirely platform-driven — nothing in your agent code chooses what gets sealed or when.
+A configured environment can supply secrets scoped to a run. Retrieve a delivered value with `ctx.get_secret("SECRET_NAME")`, optionally passing a default. If a required value was not delivered, the SDK raises `SecretNotDeliveredError`. Secret availability depends on the environment and the caller's authorized configuration. Do not log secret values or include them in Agent output.
 
 ## Verifying tokens: `JWKSTokenVerifier`
 
-If your agent needs to verify an execution token itself (rather than trusting the sidecar), [`JWKSTokenVerifier`](../reference/api.md#novaos_client_sdk.token_verifier) fetches and caches signing keys from the gateway's JWKS endpoint. Requires the `crypto` extra:
+If your agent needs to verify an execution token itself (in addition to the environment's authentication checks), [`JWKSTokenVerifier`](../reference/api.md#novaos_client_sdk.token_verifier) fetches and caches signing keys from the gateway's JWKS endpoint. Requires the `crypto` extra:
 
 ```bash
 pip install "novaos-agent-sdk[crypto]"

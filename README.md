@@ -7,17 +7,17 @@
 
 A Python client library for connecting to and communicating with AI Agents on the NovaOS platform. Speaks the **Agent2Agent Protocol (A2A), spec v1.0.1** for agent-to-agent communication, and the NovaOS Execution Gateway for end-user applications.
 
-> **Version lines.** `2.x` is the **Agent2Agent (A2A)** line: a breaking change from `1.x` — the ACP surface (`handle_acp_request`, `from_acp_request`, the `/runs` handler shape) is removed and replaced by the A2A JSON-RPC surface — and it ships a `migrate` tool that rewrites a 1.x agent onto the A2A shell. `1.x` is the **final ACP line**: stable, security and critical fixes only, end of life at the NovaOS ACP→A2A cutover. New agents should target 2.x; pin it as `novaos-agent-sdk>=2,<3`. See [Versioning and support](https://orbitronai-repo.github.io/novaos-agent-sdk/versioning-and-support/).
->
-> Published on PyPI as `novaos-agent-sdk`; imported as `novaos_client_sdk`.
+**Current SDK:** `2.x` uses Agent2Agent (A2A). For a new project, install `novaos-agent-sdk>=2,<3`. See [Versioning and support](https://orbitronai-repo.github.io/novaos-agent-sdk/versioning-and-support/) for the documentation scope and compatibility policy.
+
+Published on PyPI as `novaos-agent-sdk`; imported as `novaos_client_sdk`.
 
 ## Installation
 
 ```bash
-pip install novaos-agent-sdk
+pip install "novaos-agent-sdk>=2,<3"
 ```
 
-See [Getting started](https://orbitronai-repo.github.io/novaos-agent-sdk/getting-started/) for the full extras table (`crypto`, `llm`, `schema`, `otel`, `evaluation`, `migrate`, `grpc`).
+See [Getting started](https://orbitronai-repo.github.io/novaos-agent-sdk/getting-started/) for the full extras table (`crypto`, `llm`, `schema`, `otel`, `evaluation`, `grpc`).
 
 ## Quick start: call an agent
 
@@ -25,14 +25,16 @@ Under A2A the **base URL identifies the agent** — a `Client` addresses one age
 
 ```python
 import asyncio
-from novaos_client_sdk import Client
+from novaos_client_sdk import A2AMessage, Client, Task
 
 async def main() -> None:
     async with Client(base_url="http://my-agent:8000") as client:
-        task = await client.send_message("Hello, agent!", skill_id="chat")
+        result = await client.send_message("Hello, agent!", skill_id="chat")
 
-        if task.is_terminal and task.artifacts:
-            print(task.artifacts[0].text)
+        if isinstance(result, Task):
+            print(result.artifacts[0].text if result.artifacts else result.status.state)
+        elif isinstance(result, A2AMessage):
+            print(result.text)
 
 asyncio.run(main())
 ```
@@ -53,7 +55,7 @@ Mount `agent.asgi_endpoint()` on your ASGI app at `A2A_JSONRPC_PATH` and run it 
 
 ## Documentation
 
-Full documentation, including streaming, discovery, authentication, platform tools, migrating a 1.x agent, and the complete API reference, is at:
+Full documentation, including streaming, discovery, authentication, platform tools, and the complete API reference, is at:
 
 **https://orbitronai-repo.github.io/novaos-agent-sdk/**
 
@@ -68,22 +70,10 @@ Full documentation, including streaming, discovery, authentication, platform too
 - [Versioning and support](https://orbitronai-repo.github.io/novaos-agent-sdk/versioning-and-support/)
 - [Security](https://orbitronai-repo.github.io/novaos-agent-sdk/security/)
 
-## Migrating a 1.x (ACP) agent
-
-The `migrate` extra (`pip install "novaos-agent-sdk[migrate]"`) ships a three-stage CLI to port a 1.x agent onto the A2A shell:
-
-```bash
-python -m novaos_client_sdk.migrate analyze ./my-agent --out ./migration-out
-python -m novaos_client_sdk.migrate transform ./my-agent --plan ./migration-out/my-agent.plan.json --write
-python -m novaos_client_sdk.migrate verify ./my-agent --base-url http://127.0.0.1:8001
-```
-
-See [Migrating from 1.x](https://orbitronai-repo.github.io/novaos-agent-sdk/guides/migrating-from-1x/) and the [`migrate` CLI reference](https://orbitronai-repo.github.io/novaos-agent-sdk/reference/migrate-cli/) for the full walkthrough.
-
 ## Requirements
 
 - Python 3.12+
-- `httpx>=0.24.0` — the only required runtime dependency: HTTP for the A2A JSON-RPC transport, DNS and the gateway services. The A2A wire format is NovaOS's own code (no vendor A2A library), verified against the official `a2a-sdk` in the test suite.
+- `httpx>=0.24.0` and `idna>=3.0` — required runtime dependencies: HTTP for the A2A JSON-RPC transport, DNS and the gateway services. The A2A wire format is NovaOS's own code (no vendor A2A library), verified against the official `a2a-sdk` in the test suite.
 
 ## License
 

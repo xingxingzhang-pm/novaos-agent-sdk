@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- Focus current onboarding, navigation and version guidance on the 2.x A2A interfaces; preserve historical migration material outside the published documentation tree.
+- Handle both Task and direct A2AMessage responses in calling examples, and correct streaming fallback, discovery precedence and gateway subscription guidance.
+- Document the existing compatibility configuration names and their actual precedence without changing runtime defaults.
+
 ## [2.1.0] - 2026-10-15
 
 ### Added

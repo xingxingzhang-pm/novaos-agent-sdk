@@ -2,7 +2,7 @@
 
 ## Exception hierarchy
 
-Every exception the SDK raises inherits from [`NovaOSError`](../reference/api.md#novaos_client_sdk.exceptions). The root is deliberately **protocol-neutral**, not `A2AError`: most SDK modules (`memory`, `mcp`, `llm`, `heartbeat`, `observability`, `gateway`, `dns`) are plain NovaOS platform HTTP clients that never speak an agent wire protocol — only `client`/`discovery` do. A2A-specific errors get their own narrow subtree, `A2AProtocolError`, reserved for genuine A2A JSON-RPC errors rather than generalized to every SDK failure.
+The SDK-defined exception hierarchy inherits from [`NovaOSError`](../reference/api.md#novaos_client_sdk.exceptions). `A2AProtocolError` is the subtree for A2A JSON-RPC errors; other SDK failures use the appropriate protocol-neutral exception.
 
 ```
 NovaOSError (base)
@@ -36,9 +36,7 @@ NovaOSError (base)
     └── VersionNotSupportedError                   (-32009)
 ```
 
-This is the 2.x renamed successor of an older `ACP*`-prefixed hierarchy with the same shape but no A2A subtree — see [Migrating from 1.x](migrating-from-1x.md) if you're porting `except ACP...` handlers.
-
-Every instance carries `message`, `retry_after: float | None`, and `details: dict`, plus `is_retryable: bool` (`True` for connection errors, rate limits, and server errors with a retryable status code). Subclass extras — `field`/`reason`, `status_code`, `agent_name`, `error_code`/`task_id` — are **keyword-only**, so `NovaOSValidationError("m", 1.5)` can't be mistaken for a positional `retry_after` the way an older `ACPValidationError` accepted.
+Every instance carries `message`, `retry_after: float | None`, and `details: dict`, plus `is_retryable: bool` (`True` for connection errors, rate limits, and server errors with a retryable status code). Subclass extras — `field`/`reason`, `status_code`, `agent_name`, `error_code`/`task_id` — are **keyword-only**.
 
 ```python
 try:
@@ -90,7 +88,7 @@ Only `NovaOSAgentNotFoundError` and `NovaOSConnectionError` are caught this way.
 `A2AProtocolError` means a remote agent replied with one of the A2A spec's own JSON-RPC error codes (spec `1.0.1`), not that the HTTP call itself failed. `TaskNotCancelableError`, `UnsupportedOperationError`, and the rest above each set `error_code` on the class, so you can catch by type or branch on the code:
 
 ```python
-from novaos_client_sdk import TaskNotCancelableError, jsonrpc_error_code
+from novaos_client_sdk import A2AProtocolError, TaskNotCancelableError, jsonrpc_error_code
 
 try:
     await client.cancel_task(task_id)
@@ -132,7 +130,7 @@ if not result.success:
 
 ## Streaming errors
 
-`send_streaming_message` yields A2A `StreamResponse` frames, not a dedicated error-frame type. A protocol failure (an unsupported operation, a card that overclaims streaming support) raises `A2AProtocolError` out of the iterator instead of being yielded; a well-formed stream that never reaches a terminal or interrupt state is itself a transport failure — check with `is_last_frame`, since A2A dropped ACP's `final` flag:
+`send_streaming_message` yields A2A `StreamResponse` frames, not a dedicated error-frame type. A protocol failure (an unsupported operation, a card that overclaims streaming support) raises `A2AProtocolError` out of the iterator instead of being yielded; a task stream that closes without a terminal or interrupt state is a transport failure. A direct `A2AMessage` is a valid response without a task, and `is_last_frame` returns `False` for it. See [Invoking agents](invoking-agents.md) for a complete check:
 
 ```python
 from novaos_client_sdk import A2AProtocolError, is_last_frame

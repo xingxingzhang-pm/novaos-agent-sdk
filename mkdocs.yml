@@ -60,13 +60,16 @@ nav:
       - Platform tools: guides/platform-tools.md
       - Agent memory: guides/memory.md
       - Error handling: guides/error-handling.md
-      - Migrating from 1.x: guides/migrating-from-1x.md
   - Reference:
       - API reference: reference/api.md
-      - migrate CLI: reference/migrate-cli.md
       - Versioning and support: versioning-and-support.md
       - Security: security.md
       - Changelog: changelog.md
       - License: license.md
+
+# Retain old URLs as unlisted current-guide pointers, without old procedures.
+not_in_nav: |
+  /guides/migrating-from-1x.md
+  /reference/migrate-cli.md
 
 strict: true

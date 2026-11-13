@@ -7,9 +7,9 @@ The NovaOS Agent SDK is a Python library for two roles:
 
 Both roles ship in the same package, `novaos-agent-sdk`, imported as `novaos_client_sdk`.
 
-## Two version lines
+## Current SDK
 
-`2.x` (this line) is the **Agent2Agent (A2A)** SDK: it speaks A2A JSON-RPC 2.0 end to end. It is a breaking change from `1.x` — the ACP-era surface is gone outright, not deprecated, so there is no dual-protocol serving to migrate off of gradually. `1.x` is the **final ACP line**: stable, security and critical fixes only. There is no hosted `1.x` docs site yet; to read its docs, install `novaos-agent-sdk<2` and read the README that ships with it. Migrating an existing `1.x` agent onto this line? Start with [Migrating from 1.x](guides/migrating-from-1x.md).
+This documentation describes SDK `2.x`, which uses A2A JSON-RPC 2.0. For new projects, install `novaos-agent-sdk>=2,<3` and use the current [getting-started guide](getting-started.md). See [Versioning and support](versioning-and-support.md) for compatibility and documentation scope.
 
 ## Where to go next
 

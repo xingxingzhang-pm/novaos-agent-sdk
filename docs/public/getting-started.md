@@ -3,21 +3,20 @@
 ## Install
 
 ```bash
-pip install novaos-agent-sdk
+pip install "novaos-agent-sdk>=2,<3"
 ```
 
 Requires Python 3.12+. A few features need an optional extra:
 
 | Extra | Adds | Needed for |
 |---|---|---|
-| `crypto` | `PyJWT[crypto]`, `cryptography` | `JWKSTokenVerifier`, sealed-envelope secrets, Agent Card signature verification |
+| `crypto` | `PyJWT[crypto]`, `cryptography`, `rfc8785` | `JWKSTokenVerifier`, sealed-envelope secrets, Agent Card signature verification |
 | `llm` | `openai` | `LLMClient` (calling the LLM Gateway directly) |
 | `schema` | `jsonschema` | `validate_against_schema` (structured-output validation) |
 | `otel` | OpenTelemetry SDK + OTLP exporter | Exporting traces, not just creating them |
 | `evaluation` | `langfuse`, `openai` | The offline/CI agent-evaluation harness |
-| `migrate` | `libcst` | `python -m novaos_client_sdk.migrate transform` (the 1.x-to-2.x codemod) |
-| `grpc` | `a2a-sdk` (schema only), `grpcio` | The gRPC A2A protocol binding |
-| `all` | everything above | — |
+| `grpc` | `a2a-sdk` (schema only), `grpcio`, `grpcio-status` | The gRPC A2A protocol binding |
+| `all` | all optional extras, including compatibility tooling | Install only when the full dependency set is needed |
 
 ```bash
 pip install "novaos-agent-sdk[llm]"
@@ -37,19 +36,21 @@ Every agent-to-agent call goes through [`Client`](reference/api.md#novaos_client
 
 ```python
 import asyncio
-from novaos_client_sdk import Client
+from novaos_client_sdk import A2AMessage, Client, Task
 
 async def main() -> None:
     async with Client(base_url="http://localhost:8000") as client:
-        task = await client.send_message("Hello, agent!", skill_id="chat")
+        result = await client.send_message("Nova", skill_id="greet")
 
-        if task.is_terminal and task.artifacts:
-            print(task.artifacts[0].text)
+        if isinstance(result, Task):
+            print(result.artifacts[0].text if result.artifacts else result.status.state)
+        elif isinstance(result, A2AMessage):
+            print(result.text)
 
 asyncio.run(main())
 ```
 
-`send_message` returns the A2A `Task` the agent created; `task.artifacts` holds its output. (An agent may also answer with a bare message and no task at all — see [The A2A primer](concepts/a2a-primer.md) for the vocabulary, and [Invoking agents](guides/invoking-agents.md) for streaming, reconnecting to a task, and the Execution Gateway path used by end-user applications.)
+`send_message` returns either a `Task` or an `A2AMessage`; check its type before reading task state or artifacts. This example assumes the greeting agent below is running. For another agent, use its advertised skill ID and input format. See [The A2A primer](concepts/a2a-primer.md) and [Invoking agents](guides/invoking-agents.md) for streaming, task access and the Execution Gateway.
 
 ## Your first agent: build a skill
 
@@ -76,12 +77,19 @@ app = FastAPI()
 app.post(A2A_JSONRPC_PATH)(agent.asgi_endpoint())
 ```
 
+Save both server snippets in `my_agent.py`. Install its web-server dependencies explicitly:
+
+```bash
+pip install "fastapi>=0.100" "uvicorn>=0.30"
+```
+
 Run it locally (`uvicorn my_agent:app --port 8000`) and call it with the `Client` snippet above, pointed at `http://localhost:8000`. See [Building an agent](guides/building-an-agent.md) for platform tools, multi-skill routing, and streaming responses.
 
 ## Environment variables you'll actually need
 
-Most SDK calls take everything they need as constructor arguments (`base_url`, `auth`, ...) and need no environment configuration. Only agent discovery reads the environment, and only if you use it:
+Many SDK calls accept explicit constructor arguments (`base_url`, `auth`, ...). Some helpers also read environment variables; configure only the services your application uses:
 
-- `AGENT_DNS_URL` — the Agent DNS service URL, e.g. `http://agent-dns.example.internal:8000`. Required by `discover_and_connect` and `get_dns_url_from_env()` when you don't pass a URL explicitly. There is no built-in default host for any environment — the SDK raises a clear error naming the variables it checked if none are set.
+- `AGENT_DNS_URL` — the recommended discovery variable, for example `http://agent-dns.example.test:8000`. You can instead pass an explicit URL or use another supported configuration source. See the [full discovery precedence](guides/invoking-agents.md#discovery); there is no built-in default discovery host.
+- Authentication helpers can read a selected variable, with `ACP_API_KEY` retained as a compatibility default. See [Authentication](guides/authentication.md).
 
-Everything else (auth tokens, gateway URLs, tenant IDs) is either passed explicitly by your code or injected by the NovaOS platform at runtime when your agent runs there — see [Authentication](guides/authentication.md).
+Model, memory and execution-context helpers can also use environment configuration. Follow the relevant [API reference](reference/api.md) for the helper you choose. Hosted caller identity and execution credentials depend on the target environment; installing the SDK does not provide them. Keep secrets out of source code and logs.

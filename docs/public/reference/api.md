@@ -141,7 +141,3 @@ Tracing helpers (`get_traceparent`, `inject_trace_headers`, `traced_tool_call`, 
 ### `evaluation` — offline/CI agent evaluation
 
 ::: novaos_client_sdk.evaluation
-
-### `migrate` — migrating a 1.x agent to A2A
-
-A CLI, not an importable API — see the [`migrate` CLI reference](migrate-cli.md) for `analyze`/`transform`/`verify`. Requires `pip install "novaos-agent-sdk[migrate]"`.

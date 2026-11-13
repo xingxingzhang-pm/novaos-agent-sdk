@@ -18,9 +18,9 @@ We will acknowledge your report and work with you to understand and resolve the 
 
 We consider security research conducted in good faith, consistent with this policy, to be authorized. We will not pursue legal action against a reporter for research done this way, and we will work with you to understand and address what you found.
 
-## Supported versions
+## Version information
 
-Security fixes are backported to the `1.x` line described in [Versioning and support](https://orbitronai-repo.github.io/novaos-agent-sdk/versioning-and-support/) for as long as it remains the current stable line. There is no separate long-term-support commitment beyond that. `1.x` is the final ACP line and is maintained on a best-effort basis.
+The current SDK documentation covers the `2.x` A2A release line. Include the exact installed version when reporting a vulnerability. Fix availability and any backport to another release must be confirmed with the maintainers; this page does not promise a maintenance period for older releases. See [Versioning and support](https://orbitronai-repo.github.io/novaos-agent-sdk/versioning-and-support/) for the documentation scope.
 
 ## Out of scope
 
